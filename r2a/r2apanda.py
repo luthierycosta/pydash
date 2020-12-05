@@ -43,7 +43,7 @@ class R2APANDA(IR2A):  # {{{1
     # Video segment duration (τ)
     seg_duration = 1
 
-    def __init__(self, id, probe_inc=100, probe_conv=2):  # {{{2
+    def __init__(self, id, probe_inc=100, probe_conv=1.9):  # {{{2
         """Init for R2APANDA class. {{{
 
         @param probe_inc Probing additive increase bitrate (ω)
