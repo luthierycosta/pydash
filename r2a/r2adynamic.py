@@ -28,7 +28,7 @@ class R2ADynamic(IR2A):
         self.parsed_mpd = ''
         self.qi = []
 
-        self.througputs = []        # Array containing the throughputs available across the execution
+        self.throughputs = []        # Array containing the throughputs available across the execution
         self.request_time = None    # Last request timestamp
     
     def handle_xml_request(self, msg):
@@ -39,25 +39,25 @@ class R2ADynamic(IR2A):
         # getting qi list
         self.parsed_mpd = parse_mpd(msg.get_payload())
         self.qi = self.parsed_mpd.get_qi()
-        self.througputs.append(msg.get_bit_length()/(time.perf_counter() - self.request_time))
+        self.throughputs.append(msg.get_bit_length()/(time.perf_counter() - self.request_time))
 
         self.send_up(msg)
 
     def handle_segment_size_request(self, msg):
         # update the throughputs array to differents approachs
         
-        self.__updateThroughputsArrray("LAST-SEGMENT") 
+        self.updateThroughputsArrray("LAST-SEGMENT") 
 
         # calculating the mean of throughput array (1)
 
-        tavg = sum(self.througputs) / len(self.througputs)
+        tavg = sum(self.throughputs) / len(self.throughputs)
 
         # calculating the variance of throughput array (2)
         
         variance = 0
-        for i in range(len(self.througputs)):
-            variance += i * abs(self.througputs[i] - tavg)
-        variance /= len(self.througputs)
+        for i in range(len(self.throughputs)):
+            variance += i * abs(self.throughputs[i] - tavg)
+        variance /= len(self.throughputs)
 
         # calculating the p (3)
 
@@ -65,16 +65,16 @@ class R2ADynamic(IR2A):
 
         # calculating the T (4)
 
-        T = (1 - p) * max(self.througputs)
+        T = (1 - p) * max(self.throughputs)
 
         # calculating the theta (5)
 
-        theta = p * min(self.througputs)
+        theta = p * min(self.throughputs)
 
         # getting the new QI (6)
 
         for i in range(len(self.qi)):
-            if self.qi[i] > self.througputs[-1] - T + theta:
+            if self.qi[i] > self.throughputs[-1] - T + theta:
                 break
         self.request_time = time.perf_counter()
 
@@ -90,7 +90,7 @@ class R2ADynamic(IR2A):
     def handle_segment_size_response(self, msg):
         t = (time.perf_counter() - self.request_time)
         currentthroughput = msg.get_bit_length()/t
-        self.througputs.append(currentthroughput)
+        self.throughputs.append(currentthroughput)
 
         self.send_up(msg)
 
@@ -100,7 +100,7 @@ class R2ADynamic(IR2A):
     def finalization(self):
         pass
 
-    def __updateThroughputsArrray(self, mode):
+    def updateThroughputsArrray(self, mode):
         """
         This function accepts the SMOOTHED where the algoritm uses
         all throughputs trying keep the quality more stable, LAST-SEGMENT
@@ -119,5 +119,3 @@ class R2ADynamic(IR2A):
                 self.throughputs = self.throughputs[1:]
         elif mode == "SMOOTHED":
             pass
-        else:
-            raise Exception
