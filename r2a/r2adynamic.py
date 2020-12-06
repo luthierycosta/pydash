@@ -46,7 +46,7 @@ class R2ADynamic(IR2A):
     def handle_segment_size_request(self, msg):
         # update the throughputs array to differents approachs
         
-        self.__updateThroughputsArrray("SMOOTH") 
+        self.__updateThroughputsArrray("LAST-SEGMENT") 
 
         # calculating the mean of throughput array (1)
 
@@ -76,7 +76,6 @@ class R2ADynamic(IR2A):
         for i in range(len(self.qi)):
             if self.qi[i] > self.througputs[-1] - T + theta:
                 break
-        self.q.append(i)
         self.request_time = time.perf_counter()
 
         #list = self.whiteboard.get_playback_history()
