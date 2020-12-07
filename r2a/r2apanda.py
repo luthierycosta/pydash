@@ -43,7 +43,7 @@ class R2APANDA(IR2A):  # {{{1
     # Video segment duration (τ)
     seg_duration = 1
 
-    def __init__(self, id, probe_inc=100, probe_conv=1.9):  # {{{2
+    def __init__(self, id, probe_inc=500, probe_conv=2):  # {{{2
         """Init for R2APANDA class. {{{
 
         @param probe_inc Probing additive increase bitrate (ω)
@@ -56,10 +56,15 @@ class R2APANDA(IR2A):  # {{{1
 
         self.request_time = None  # Last request timestamp
         self.interreq_time = []  # Actual time between requests (Τ)
+        self.target_interreq_time = [0]
 
-        self.target_bandshare = [0]  # Target average data rate (x̂)
+        self.target_bandshare = []  # Target average data rate (x̂)
         self.smooth_bandshare = []  # Smoothed version of x̂ (ŷ)
         self.throughputs = []  # TCP throughput measured (x̃)
+
+        self.buffer_duration = []
+        self.buffer_convergence = 0.5
+        self.buffer_min = self.whiteboard.get_max_buffer_size() * 0.25
 
         self.parsed_mpd = None
         self.qi = []  # List of available bitrates (quality) from manifest
@@ -93,6 +98,7 @@ class R2APANDA(IR2A):  # {{{1
         # Compute throughput by x̃ := (r * τ) / t
         self.throughputs.append(msg.get_bit_length() / t)
 
+        self.target_bandshare.insert(0, self.throughputs[-1])
         # Compute target bandshare
         self.target_bandshare.append(self._get_target_bandshare())
         # Remove stub initial bandshare
@@ -124,15 +130,17 @@ class R2APANDA(IR2A):  # {{{1
         # history {B[m] : m < n}.")
         self.q.append(self.quantize(self.smooth_bandshare))
 
-        # Step 4) NOTE: already handled by upper layers? {{{
         # 4) Schedule the next download request depending on the buffer
         # fullnes:
-        # full = len(
-        #         self.whiteboard.get_buffer()
-        #         ) >= self.whiteboard.get_max_buffer_size()
-        # self.target_interreq_time.append(
-        #         0 if not full else R2APANDA.seg_duration
-        #         )
+        self.buffer_duration.append(
+                len(self.whiteboard.get_buffer()) * R2APANDA.seg_duration
+                )  # Quantos segundos de vídeo tem armazenado no buffer
+        target_time = self.q[-1] * R2APANDA.seg_duration
+        target_time /= self.smooth_bandshare[-1]  # < 1
+        # < 0 se menos que buffer_min
+        buffer_delta = self.buffer_duration[-1] - self.buffer_min
+        target_time += self.buffer_convergence * buffer_delta
+        self.target_interreq_time.append(target_time)
         # }}}
 
         # Set quality
@@ -149,7 +157,8 @@ class R2APANDA(IR2A):  # {{{1
         t = time.perf_counter() - self.request_time
 
         # 1) Estimate the bandwidth share `self.target_bandshare[-1]` by
-        self.throughputs.append(msg.get_bit_length() / t)
+        # msg.get_bit_length()
+        self.throughputs.append(self.q[-1] / t)
         self.interreq_time.append(t)
         self.target_bandshare.append(self._get_target_bandshare())
 
@@ -169,21 +178,21 @@ class R2APANDA(IR2A):  # {{{1
 
             Estimate the bandwidth share `self.target_bandshare[-1]` (x̂[n]) by
 
-            x̂[n] - x̂[n-1]   κ·(ω - max(0, x̂[n-1]-x̃{n-1]+ω))
+            x̂[n] - x̂[n-1]   κ·(ω - max(0, x̂[n-1]-x̃[n-1]+ω))
             ───────────── = ───────────────────────────────
                 T[n-1]                     1
 
                 ↓↓↓
 
-            x̂[n] = (κ·(ω - max(0, x̂[n-1]-x̃{n-1]+ω)))·T[n-1]+x̂[n-1]
+            x̂[n] = (κ·(ω - max(0, x̂[n-1]-x̃[n-1]+ω)))·T[n-1]+x̂[n-1]
         }}}"""
         w = self.probe_inc
         k = self.probe_conv
         ret = w - max(0, self.target_bandshare[-1] - self.throughputs[-1] + w)
         ret *= k
-        ret *= self.interreq_time[-1]
+        ret *= max(self.interreq_time[-1], self.target_interreq_time[-1])
         ret += self.target_bandshare[-1]
-        return self.throughputs[-1]
+        return ret  # self.throughputs[-1]
     # 2}}}
 
     def smoothen(self, target_bandshare):  # {{{2
@@ -208,7 +217,7 @@ class R2APANDA(IR2A):  # {{{1
         }}}"""
         rate = self.qi[0]
         for q in self.qi:
-            if q > statistics.mean(smooth_bandshare[-2:]):
+            if q > statistics.mean(smooth_bandshare[-5:]):
                 break
             rate = q
         return rate
