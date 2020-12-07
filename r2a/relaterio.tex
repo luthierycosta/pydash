@@ -1,0 +1,285 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+
+% Margin package %%%%%%%%%%%%%%%%%% {{{1
+% Adjust document margin
+\usepackage[margin=30.5cm]{geometry}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 1}}}
+
+% URL ref %%%%%%%%%%%%%%%%%%%%%%%%% {{{1
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,filecolor=magenta,urlcolor=cyan,}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 1}}}
+
+% Code syntax package %%%%%%%%%%%%% {{{1
+% Fix minted output directory
+\usepackage[abspath]{currfile}
+\getabspath{\jobname.log}
+% Load minted (Coq syntax highlight)
+\usepackage[newfloat, outputdir=\theabsdir]{minted}
+\usepackage{caption}
+\newenvironment{code}{\captionsetup{type=listing}}{}
+\SetupFloatingEnvironment{listing}{name=Trecho de código}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 1}}}
+
+% Date package %%%%%%%%%%%%%%%%%%%% {{{1
+\usepackage[portuguese]{babel}
+\usepackage[useregional]{datetime2}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 1}}}
+
+% Other packages %%%%%%%%%%%%%%%%%% {{{1
+\usepackage{color}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 1}}}
+
+% Title %%%%%%%%%%%%%%%%%%%%%%%%%%% {{{1
+\title{Assinatura e Verificação de Arquivos com RSA}
+\author{Vinícius T M Sugimoto}
+\date{\today}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 1}}}
+
+\begin{document}
+
+\maketitle
+
+\section{Introdução} % {{{1
+\label{section:introducao}
+
+% criando paragrafos dissertativos:
+% Frase 1 + Frase 2 + Frase 3 + Frase 4.
+
+% • Frase 1 - O que?
+    % Apresente de maneira sucinta uma ideia e seu contexto.
+
+% • Frase 2 - Por quê? -
+    % Descreva a ideia e sua motivação.
+
+% • Frase 3 - Qual o problema?
+    % Apresente qual o problema da ideia apresentada.
+
+% • Frase 4 - Solução e Conclusão.
+    % Apresente uma solução para o problema ou uma conclusão para o mesmo.
+
+Hoje em dias as pessoas veem muitos videos de gatinhos no youtube..
+
+Para que isso seja possível, é preciso que os players possam atender a todos os públicos.
+Mas as net é diferente...
+
+Para resolver o problema existem abordagens server-side ou client-side, este último, foco desse trabalho.
+DASH
+E existe o panda
+
+Nas seções seguinte, será falado tal coisa
+
+% Terceiro
+
+\section{DASH e PANDA}
+Mesma fŕ
+
+\subsection{SHA-3}
+\label{subsection:sha3}
+O SHA-3 (Secure Hash Algorithm) é um algoritmo de \textit{hash} seguro publicado pelo NIST (National
+Institute of Standards and Technology) em 2015 que substitui seus antecessores, SHA-1 e SHA-2. Este
+algoritmo utiliza uma construção de esponja, isto é, tem uma fase para "absorver" (processamento) a
+entrada e uma fase para "espremer" (gerar) a saída. Esse tipo de construção permite utilizar entradas
+de tamanhos arbitrários para gerar saídas de tamanhos arbitrários. O algoritmo usa uma função Keccak,
+que realiza uma série de permutações com operações XOR, AND e NOT, para ser eficiente tanto em hardware
+como em software, sobre a entrada absorvida e para espremer uma saída.
+
+\subsection{RSA e Geração de Chaves}
+\label{subsection:rsa}
+O RSA é um sistema de cifração e decifração de chave assimétrica, isto é, utiliza duas chaves, uma
+pública e outra privada ou secreta, de modo que se uma chave cifra uma mensagem, somente sua outra chave
+correspondente possa decifrar. A segurança do RSA se baseia no problema da fatoração do produto de dois
+números primos grandes, e apesar de que o questionamento sobre a dificuldade de quebrar o RSA ser igual
+a do problema da fatoração ainda estar em aberto, para tamanhos de chaves suficientemente grandes, não
+existem métodos conhecidos de quebrar o RSA. Apesar disso, o RSA não é comumente utilizado para cifrar
+dados diretamente, mas sim chaves de sistemas criptográficos simétricos, como o AES, pois o RSA pode ser
+considerado devagar, se comparado a outros sistemas.
+
+Uma implementação da geração de chaves do RSA, demonstrada em \ref{algorithm:rsa_keygen}, consiste de gerar
+dois números primos grandes, comumente chamados $p$ e $q$, de tamanhos próximos, que são utilizados
+para gerar um $n = pq$, conhecido como o módulo, depois $\phi = (p - 1)(q - 1)$ é calculado e um inteiro
+$e$ é escolhido tal que $1 < e < \phi$ e $MDC(e, \phi) = 1$, conhecido como expoente público, e por fim
+calcular $d$ tal que $1 < d < \phi$ e $ed \equiv 1 \text{ mod } \phi$, conhecido como expoente secreto.
+A chave pública é o par de módulo e expoente $(n, e)$ e a chave privada é o par $(n, d)$. Geralmente
+$e \in \{3, 5, 17, 257, 65537\}$, pois esses valores são primos e têm somente dois bits com valor $1$,
+facilitando a exponenciação modular.
+
+\begin{algorithm}
+	\caption{Geração de Chaves RSA}
+	\label{algorithm:rsa_keygen}
+	\begin{algorithmic}
+		\Function{RSA\_GenKeys}{}:
+		\State $p, q \leftarrow$ primos grandes pseudoaleatórios de tamanhos parecidos
+		\State $n = pq$
+		\State $\phi = (p - 1)(q - 1)$
+		\State $e \leftarrow$ inteiro tal que $1 < e < \phi$ e $MDC(e, \phi) = 1$
+		\State $d \leftarrow$ inteiro tal que $1 < d < \phi$ e $ed \equiv 1$ mod $\phi$
+		\State\Return $((n, e), (n, d))$
+		\EndFunction
+	\end{algorithmic}
+\end{algorithm}
+
+Uma chave RSA é comumente associada com um comprimento em bits, o comprimento em bits de $n$. Valores
+normalmente desejados para o comprimento de $n$ são 1024, 2048 etc. Este trabalho apresenta uma
+implementação do RSA com um comprimento de chave de 1024 bits.
+
+A cifração RSA utiliza a chave pública, por exemplo, e computa o texto cifrado $c$ de uma mensagem $m$
+com $c = m^e$ mod $n$ e a decifração com a chave secreta é $m = c^d$ mod $n$. Assim, não há algum
+componente randômico, isto é, são algoritmos determinísticos, o que os torna vulneráveis a ataques de
+texto escolhido (não-CPA-seguro). O RSA como descrito acima sem um \textit{padding} não é semanticamente
+seguro. Na subseção seguinte é apresentado o algoritmo de \textit{padding} OAEP e como pode ser utilizado
+para resolver o problema do determinismo no RSA.
+
+\subsection{OAEP e Cifração e Decifração com RSA}
+\label{subsection:oaep}
+
+O OAEP, Optimal Asymetric Encryption Padding, é um esquema de \textit{padding} muito utilizado junto ao
+RSA para resolver seu problema de determinismo. O OAEP usa um par de oráculos randômicos para processar
+a mesagem antes de cifrá-la, resultando em um esquema CPA-seguro. O OAEP com o RSA serve para adicionar
+randomicidade ao esquema determinístic o tornando em um esquema probabilístico. O OAEP também previne que
+qualquer informação de algum texto cifrado vaze, impedindo a decifração parcial por parte de um
+adversário.
+
+Apesar do OAEP ser um esquema de \textit{padding}, ele faz mais do que só adicionar um \textit{padding} à
+mensagem de entrada. Considerando a descrição do RSA dada em \ref{subsection:rsa} e os oráculos
+randômicos $G$ e $H$, uma implementação do OAEP pode ser dada como no algoritmo
+\ref{algorithm:oaep}.
+
+\begin{algorithm}
+	\caption{Padding com OAEP}
+	\label{algorithm:oaep}
+	\begin{algorithmic}
+		\Function{OAEP\_Encode}{$m$: mensagem}:
+		\State $n \leftarrow$ comprimento de chave RSA em bits
+		\State $k_0 \leftarrow$ constante fixada
+		\State $k_1 \leftarrow n - k_0 - |m|$
+		\State $m \leftarrow m\overbrace{00...0}^{k_1}$
+		\State $r \leftarrow$ cadeia de $k_0$-bits gerados randômicamente
+		\State $X \leftarrow m \oplus G(r)$, com $G$ expandindo $r$ para $n - k_0$ bits
+		\State $Y \leftarrow r \oplus H(X)$, com $H$ expandindo $X$ para $k_0$ bits
+		\State\Return $X||Y$, a concatenação de $X$ e $Y$
+		\EndFunction
+		\Function{OAEP\_Decode}{$X||Y$: mensagem codificada}:
+		\State $r \leftarrow Y \oplus H(X)$
+		\State\Return $m00...0 \leftarrow X \oplus G(r)$
+		\EndFunction
+	\end{algorithmic}
+\end{algorithm}
+
+Neste trabalho, a constante $k_0$ foi fixada em $88$, representando um comprimento em bits, o que implica
+em uma mensagem de no máximo $117$ bytes. Caso uma mensagem tenha tamanho maior que o máximo o OAEP deve
+abortar e apresentar uma mensagem de erro. Neste trabalho os oráculos $H$ e $G$ utilizados foram $H = G
+= SHA$-$3$.
+
+Com o OAEP removendo o determinismo da cifração e decifração do RSA, os algoritmos usados para cifrar e
+decifrar mensagens podem ser descritos como em \ref{algorithm:rsa_enc} e \ref{algorithm:rsa_dec},
+respectivamente.
+
+\begin{algorithm}
+	\caption{Cifração com RSA}
+	\label{algorithm:rsa_enc}
+	\begin{algorithmic}
+		\Function{RSA\_Encrypt}{$m$: mensagem, $k$: chave RSA}:
+		\State $n, e \leftarrow$ módulo de $k$, expoente de $k$
+		\State $m \leftarrow OAEP\_Encode(m)$
+		\State\Return $m^{e}$ mod $n$
+		\EndFunction
+	\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+	\caption{Decifração com RSA}
+	\label{algorithm:rsa_dec}
+	\begin{algorithmic}
+		\Function{RSA\_Decrypt}{$c$: mensagem cifrada, $k$: chave RSA}:
+		\State $n, d \leftarrow$ módulo de $k$, expoente de $k$
+		\State $c \leftarrow c^d$ mod $n$
+		\State\Return $OAEP\_Decode(c)$
+		\EndFunction
+	\end{algorithmic}
+\end{algorithm}
+
+\section{Assinatura RSA e Implementação}
+\label{section:assinatura_e_implementacao}
+
+Nesta seção será apresentado o uso da ferramenta e como a sua documentação detalhada pode ser encontrada.
+O trabalho foi desenvolvido na linguagem C e testado em um computador com Ubuntu Linux 20.10. O código
+fonte da ferramenta está hospedado no repositório em \url{https://github.com/vinicius-toshiyuki/rsa}. O
+executável da ferramenta pode ser gerado a partir do código fonte com auxílio da ferramente {\tt make}
+como demonstrado no trecho de código \ref{lst:build}.
+
+O primeiro passo ao utilizar a ferramenta, chamada a partir de agora {\tt rsa.out}, é gerar um par de
+chaves, que têm extensões {\tt .pk} e {\tt .sk}, para as chaves pública e secreta, respectivamente. A
+geração de chaves pode ser feita a partir de um terminal como demonstrado no trecho de código
+\ref{lst:key_gen}.
+
+O usuário pode assinar arquivos tanto com a chave privada quanto com a chave pública, mas só pode
+verificar a integridade (corretamente) um arquivo com a chave-irmã da chave utilizada para assinar. O
+arquivo contendo a assinatura digital tem a extensão {\tt .sign}. A assinatura de um arquivo pode ser
+feita a partir de um terminal como demostrado no trecho de código \ref{lst:file_signing}.
+
+Para verificar a integridade de um arquivo, o usuário deve utilizar a chave-irmã da chave utilizada para
+gerar a assinatura. O programa imprimirá {\tt Valid} ou {\tt Invalid} caso a assinatura seja válida ou
+inválida, respectivamente. A verificação da validade da assinatura para um arquivo pode ser feita a
+partir de um terminal como demonstrado no trecho de código \ref{lst:signature_validate}.
+
+O repositório do código fonte contém a documentação do projeto e informações extras, como dependências do
+projeto, intruções detalhadas sobre a compilação, informações sobre os comandos suportados e referências
+utilizadas durante a implementação e parâmetros utilizados na configuração das funções. Instruções sobre
+como gerar os arquivos de documentação utilizando as ferramentas {\tt make} e {\tt Doxygen} estão
+demonstradas no trecho de código \ref{lst:docs}.
+
+\begin{code}
+\begin{minted}{bash}
+	# Gera o arquivo "rsa.out" no diretório como o executável
+	make
+\end{minted}
+\captionof{listing}{Geração do executável}
+\label{lst:build}
+\end{code}
+
+\begin{code}
+\begin{minted}{bash}
+	# Gera um par de chaves com o prefixo "key"
+	./rsa.out -c genkeys -f key
+\end{minted}
+\captionof{listing}{Geração de chaves RSA}
+\label{lst:key_gen}
+\end{code}
+
+\begin{code}
+\begin{minted}{bash}
+	# Gera uma assinatura .sign com prefixo "file" a partir de
+	# um arquivo "file" usando a chave pública em "key.pk"
+	./rsa.out -c sign -f file -s file -k key.pk
+\end{minted}
+\captionof{listing}{Assinatura de arquivo}
+\label{lst:file_signing}
+\end{code}
+
+\begin{code}
+\begin{minted}{bash}
+	# Valida a assinatura em "file.sign" para um arquivo "file" 
+	# usando a chave privada em "key.sk"
+	./rsa.out -c verify -f file -s file.sign -k key.sk
+\end{minted}
+\captionof{listing}{Validação da assinatura de um arquivo}
+\label{lst:signature_validate}
+\end{code}
+
+\begin{code}
+\begin{minted}{bash}
+	# Gera a documentação do projeto na pasta docs
+	make docs
+\end{minted}
+\captionof{listing}{Geração dos arquivos de documentação}
+\label{lst:docs}
+\end{code}
+
+\end{document}
+

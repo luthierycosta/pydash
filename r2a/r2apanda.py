@@ -4,7 +4,7 @@ from player.parser import parse_mpd
 from r2a.ir2a import IR2A
 
 
-def __color(r, g, b, where='fg'):  # {{{1
+def color(r, g, b, where='fg'):  # {{{1
     if where == 'fg':
         where = '38'
     elif where == 'bg':
@@ -43,7 +43,7 @@ class R2APANDA(IR2A):  # {{{1
     # Video segment duration (τ)
     seg_duration = 1
 
-    def __init__(self, id, probe_inc=500, probe_conv=2):  # {{{2
+    def __init__(self, id, probe_inc=50000, probe_conv=1.9):  # {{{2
         """Init for R2APANDA class. {{{
 
         @param probe_inc Probing additive increase bitrate (ω)
@@ -57,12 +57,11 @@ class R2APANDA(IR2A):  # {{{1
         self.request_time = None  # Last request timestamp
         self.interreq_time = []  # Actual time between requests (Τ)
         self.target_interreq_time = [0]
-
         self.target_bandshare = []  # Target average data rate (x̂)
         self.smooth_bandshare = []  # Smoothed version of x̂ (ŷ)
         self.throughputs = []  # TCP throughput measured (x̃)
 
-        self.buffer_duration = []
+        self.buffer_duration = [0]
         self.buffer_convergence = 0.5
         self.buffer_min = self.whiteboard.get_max_buffer_size() * 0.25
 
@@ -96,7 +95,9 @@ class R2APANDA(IR2A):  # {{{1
         self.interreq_time.append(t)
 
         # Compute throughput by x̃ := (r * τ) / t
-        self.throughputs.append(msg.get_bit_length() / t)
+        self.throughputs.append(
+                msg.get_bit_length() * R2APANDA.seg_duration / t
+                )
 
         self.target_bandshare.insert(0, self.throughputs[-1])
         # Compute target bandshare
@@ -132,16 +133,23 @@ class R2APANDA(IR2A):  # {{{1
 
         # 4) Schedule the next download request depending on the buffer
         # fullnes:
+        # t̂[n] = (r[n] * τ) / ŷ[n] + β·(B[n-1]-Bmin)
         self.buffer_duration.append(
-                len(self.whiteboard.get_buffer()) * R2APANDA.seg_duration
+                self.buffer_duration[-1] +
+                R2APANDA.seg_duration - self.target_interreq_time[-1]
                 )  # Quantos segundos de vídeo tem armazenado no buffer
         target_time = self.q[-1] * R2APANDA.seg_duration
-        target_time /= self.smooth_bandshare[-1]  # < 1
+        target_time /= self.smooth_bandshare[-1]  # 0 <= target_time < 1
         # < 0 se menos que buffer_min
         buffer_delta = self.buffer_duration[-1] - self.buffer_min
         target_time += self.buffer_convergence * buffer_delta
+        print(
+            color(151, 150, 10),
+            'target time:',
+            target_time,
+            '\033[0m'
+            )
         self.target_interreq_time.append(target_time)
-        # }}}
 
         # Set quality
         msg.add_quality_id(self.q[-1])
@@ -157,8 +165,7 @@ class R2APANDA(IR2A):  # {{{1
         t = time.perf_counter() - self.request_time
 
         # 1) Estimate the bandwidth share `self.target_bandshare[-1]` by
-        # msg.get_bit_length()
-        self.throughputs.append(self.q[-1] / t)
+        self.throughputs.append(msg.get_bit_length() / t)
         self.interreq_time.append(t)
         self.target_bandshare.append(self._get_target_bandshare())
 
@@ -188,11 +195,23 @@ class R2APANDA(IR2A):  # {{{1
         }}}"""
         w = self.probe_inc
         k = self.probe_conv
+        print(
+            color(200, 100, 150, 'bg'),
+            'band-though:',
+            self.target_bandshare[-1] - self.throughputs[-1],
+            '\033[0m'
+        )
         ret = w - max(0, self.target_bandshare[-1] - self.throughputs[-1] + w)
         ret *= k
         ret *= max(self.interreq_time[-1], self.target_interreq_time[-1])
         ret += self.target_bandshare[-1]
-        return ret  # self.throughputs[-1]
+        print(
+            color(200, 10, 10) if ret > 0 else color(0, 0, 100),
+            'ret:',
+            ret,
+            '\033[0m'
+            )
+        return max(ret, self.qi[0])  # self.throughputs[-1]
     # 2}}}
 
     def smoothen(self, target_bandshare):  # {{{2
@@ -205,7 +224,7 @@ class R2APANDA(IR2A):  # {{{1
             This implements a harmonic mean method.
         }}}"""
         # TODO: implement other methods?
-        return statistics.harmonic_mean(target_bandshare)
+        return statistics.harmonic_mean(target_bandshare[-5:])
     # 2}}}
 
     def quantize(self, smooth_bandshare):  # {{{2
