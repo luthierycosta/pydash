@@ -46,7 +46,7 @@ class R2ADynamic(IR2A):
     def handle_segment_size_request(self, msg):
         # update the throughputs array to differents approachs
         
-        self.updateThroughputsArrray("LAST-SEGMENT") 
+        self.updateThroughputsArrray("SMOOTHED") 
 
         # calculating the mean of throughput array (1)
 
@@ -72,10 +72,13 @@ class R2ADynamic(IR2A):
         theta = p * min(self.throughputs)
 
         # getting the new QI (6)
-
+        low = imin = float('inf')
         for i in range(len(self.qi)):
-            if self.qi[i] > self.throughputs[-1] - T + theta:
-                break
+            if self.qi[i] - T + theta < low:
+                low = T + theta - self.qi[i]
+                imin = i
+
+        # save the request timestamp
         self.request_time = time.perf_counter()
 
         #list = self.whiteboard.get_playback_history()
@@ -83,7 +86,7 @@ class R2ADynamic(IR2A):
         #    print(f'>>>>>>>>>>> {list[0][1]}')
 
         # Hora de definir qual qualidade será escolhida
-        msg.add_quality_id(self.qi[i])
+        msg.add_quality_id(self.qi[imin])
 
         self.send_down(msg)
 

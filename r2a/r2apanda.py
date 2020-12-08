@@ -88,6 +88,7 @@ class R2APANDA(IR2A):  # {{{1
         }}}"""
         # Get qi list (R)
         self.parsed_mpd = parse_mpd(msg.get_payload())
+        R2APANDA.seg_duration = int(self.parsed_mpd.get_segment_template()["duration"]) / int(self.parsed_mpd.get_segment_template()["timescale"])
         self.qi = self.parsed_mpd.get_qi()
 
         # Get time delta (request response time)
@@ -134,10 +135,6 @@ class R2APANDA(IR2A):  # {{{1
         # 4) Schedule the next download request depending on the buffer
         # fullnes:
         # t̂[n] = (r[n] * τ) / ŷ[n] + β·(B[n-1]-Bmin)
-        self.buffer_duration.append(
-                self.buffer_duration[-1] +
-                R2APANDA.seg_duration - self.target_interreq_time[-1]
-                )  # Quantos segundos de vídeo tem armazenado no buffer
         target_time = self.q[-1] * R2APANDA.seg_duration
         target_time /= self.smooth_bandshare[-1]  # 0 <= target_time < 1
         # < 0 se menos que buffer_min
@@ -165,6 +162,10 @@ class R2APANDA(IR2A):  # {{{1
         t = time.perf_counter() - self.request_time
 
         # 1) Estimate the bandwidth share `self.target_bandshare[-1]` by
+        self.buffer_duration.append(max(0,
+                self.buffer_duration[-1] +
+                R2APANDA.seg_duration - self.target_interreq_time[-1]
+        ))  # Quantos segundos de vídeo tem armazenado no buffer
         self.throughputs.append(msg.get_bit_length() / t)
         self.interreq_time.append(t)
         self.target_bandshare.append(self._get_target_bandshare())
@@ -239,6 +240,8 @@ class R2APANDA(IR2A):  # {{{1
             if q > statistics.mean(smooth_bandshare[-5:]):
                 break
             rate = q
+        ratio = self.buffer_duration[-1] / self.buffer_min
+        rate = self.qi[min(self.qi.index(rate) + int(ratio), 19)]
         return rate
     # 2}}}
 # 1}}}
