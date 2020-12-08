@@ -272,7 +272,7 @@ class R2APANDA(IR2A):  # {{{1
             if q > statistics.mean(smooth_bandshare[-5:]):
                 break
             rate = q
-        ratio = 0  # self.buffer_duration[-1] / self.buffer_min
+        ratio = self.buffer_duration[-1] / self.buffer_min
         rate = self.qi[min(self.qi.index(rate) + int(ratio), 19)]
         return rate
     # 2}}}
