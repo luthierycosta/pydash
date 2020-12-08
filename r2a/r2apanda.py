@@ -4,38 +4,6 @@ from player.parser import parse_mpd
 from r2a.ir2a import IR2A
 
 
-def color(r, g, b, where='fg'):  # {{{1
-    if where == 'fg':
-        where = '38'
-    elif where == 'bg':
-        where = '48'
-    else:
-        raise Exception('Invalid position')
-
-    if r > 255 or g > 255 or b > 255 or r < 0 or g < 0 or b < 0:
-        raise Exception('Invalid rgb value')
-
-    return '\033['+where+f';2;{int(r)};{int(g)};{int(b)}m'
-# 1}}}
-
-
-def printCol(*args, **kwargs):
-    col = (255, 255, 255)
-    if 'col' in kwargs:
-        col = kwargs['col']
-        del kwargs['col']
-    end = '\n'
-    if 'end' in kwargs:
-        end = kwargs['end']
-        del kwargs['end']
-    print(color(*col), end='')
-    print(
-        *args,
-        **kwargs,
-        end=''
-        )
-    print('\033[0m', end=end)
-
 
 class R2APANDA(IR2A):  # {{{1
     """Implementation of PANDA (Probe AND Adapt) algorithm. {{{
@@ -113,11 +81,9 @@ class R2APANDA(IR2A):  # {{{1
         R2APANDA.seg_duration /= int(
                 self.parsed_mpd.get_segment_template()["timescale"]
                 )
-        printCol(self.whiteboard.get_max_buffer_size(), col=(0, 200, 0))
         self.whiteboard.add_max_buffer_size(
             self.whiteboard.get_max_buffer_size() * R2APANDA.seg_duration
         )
-        printCol(self.whiteboard.get_max_buffer_size(), col=(0, 200, 0))
         self.qi = self.parsed_mpd.get_qi()
 
         # Get time delta (request response time)
@@ -169,12 +135,7 @@ class R2APANDA(IR2A):  # {{{1
         # < 0 se menos que buffer_min
         buffer_delta = self.buffer_duration[-1] - self.buffer_min
         target_time += self.buffer_convergence * buffer_delta
-        print(
-            color(151, 150, 10),
-            'target time:',
-            target_time,
-            '\033[0m'
-            )
+
         self.target_interreq_time.append(target_time)
 
         # Set quality
@@ -228,22 +189,12 @@ class R2APANDA(IR2A):  # {{{1
         }}}"""
         w = self.probe_inc
         k = self.probe_conv
-        print(
-            color(200, 100, 150, 'bg'),
-            'band-though:',
-            self.target_bandshare[-1] - self.throughputs[-1],
-            '\033[0m'
-        )
+
         ret = w - max(0, self.target_bandshare[-1] - self.throughputs[-1] + w)
         ret *= k
         ret *= max(self.interreq_time[-1], self.target_interreq_time[-1])
         ret += self.target_bandshare[-1]
-        print(
-            color(200, 10, 10) if ret > 0 else color(0, 0, 100),
-            'ret:',
-            ret,
-            '\033[0m'
-            )
+
         return max(ret, self.qi[0])  # self.throughputs[-1]
     # 2}}}
 
