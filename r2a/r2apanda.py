@@ -1,3 +1,8 @@
+# Grupo 3:
+# Divino Junio Batista Lopes
+# Luthiery Costa Cavalcante
+# Vinicius Toshiyuki Menezes Sugimoto
+
 import statistics
 import time
 from player.parser import parse_mpd
