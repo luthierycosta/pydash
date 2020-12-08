@@ -19,6 +19,24 @@ def color(r, g, b, where='fg'):  # {{{1
 # 1}}}
 
 
+def printCol(*args, **kwargs):
+    col = (255, 255, 255)
+    if 'col' in kwargs:
+        col = kwargs['col']
+        del kwargs['col']
+    end = '\n'
+    if 'end' in kwargs:
+        end = kwargs['end']
+        del kwargs['end']
+    print(color(*col), end='')
+    print(
+        *args,
+        **kwargs,
+        end=''
+        )
+    print('\033[0m', end=end)
+
+
 class R2APANDA(IR2A):  # {{{1
     """Implementation of PANDA (Probe AND Adapt) algorithm. {{{
 
@@ -64,6 +82,7 @@ class R2APANDA(IR2A):  # {{{1
         self.buffer_duration = [0]
         self.buffer_convergence = 0.5
         self.buffer_min = self.whiteboard.get_max_buffer_size() * 0.25
+        self.buffer_min *= R2APANDA.seg_duration
 
         self.parsed_mpd = None
         self.qi = []  # List of available bitrates (quality) from manifest
@@ -88,7 +107,17 @@ class R2APANDA(IR2A):  # {{{1
         }}}"""
         # Get qi list (R)
         self.parsed_mpd = parse_mpd(msg.get_payload())
-        R2APANDA.seg_duration = int(self.parsed_mpd.get_segment_template()["duration"]) / int(self.parsed_mpd.get_segment_template()["timescale"])
+        R2APANDA.seg_duration = int(
+                self.parsed_mpd.get_segment_template()["duration"]
+                )
+        R2APANDA.seg_duration /= int(
+                self.parsed_mpd.get_segment_template()["timescale"]
+                )
+        printCol(self.whiteboard.get_max_buffer_size(), col=(0, 200, 0))
+        self.whiteboard.add_max_buffer_size(
+            self.whiteboard.get_max_buffer_size() * R2APANDA.seg_duration
+        )
+        printCol(self.whiteboard.get_max_buffer_size(), col=(0, 200, 0))
         self.qi = self.parsed_mpd.get_qi()
 
         # Get time delta (request response time)
@@ -97,7 +126,7 @@ class R2APANDA(IR2A):  # {{{1
 
         # Compute throughput by x̃ := (r * τ) / t
         self.throughputs.append(
-                msg.get_bit_length() * R2APANDA.seg_duration / t
+                msg.get_bit_length() / t
                 )
 
         self.target_bandshare.insert(0, self.throughputs[-1])
@@ -162,11 +191,14 @@ class R2APANDA(IR2A):  # {{{1
         t = time.perf_counter() - self.request_time
 
         # 1) Estimate the bandwidth share `self.target_bandshare[-1]` by
-        self.buffer_duration.append(max(0,
-                self.buffer_duration[-1] +
-                R2APANDA.seg_duration - self.target_interreq_time[-1]
+        self.buffer_duration.append(max(
+            0,
+            self.buffer_duration[-1] +
+            R2APANDA.seg_duration - self.target_interreq_time[-1]
         ))  # Quantos segundos de vídeo tem armazenado no buffer
-        self.throughputs.append(msg.get_bit_length() / t)
+        self.throughputs.append(
+                msg.get_bit_length() / t
+                )
         self.interreq_time.append(t)
         self.target_bandshare.append(self._get_target_bandshare())
 
@@ -240,7 +272,7 @@ class R2APANDA(IR2A):  # {{{1
             if q > statistics.mean(smooth_bandshare[-5:]):
                 break
             rate = q
-        ratio = self.buffer_duration[-1] / self.buffer_min
+        ratio = 0  # self.buffer_duration[-1] / self.buffer_min
         rate = self.qi[min(self.qi.index(rate) + int(ratio), 19)]
         return rate
     # 2}}}
