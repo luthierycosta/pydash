@@ -273,7 +273,7 @@ class R2APANDA(IR2A):  # {{{1
                 break
             rate = q
         ratio = self.buffer_duration[-1] / self.buffer_min
-        rate = self.qi[min(self.qi.index(rate) + int(ratio), 19)]
+        rate = self.qi[min(self.qi.index(rate) + int(ratio), len(self.qi) - 1)]
         return rate
     # 2}}}
 # 1}}}
